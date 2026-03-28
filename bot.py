@@ -6,8 +6,11 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 from docx import Document
-
 TOKEN = os.getenv("TOKEN")
+
+if not TOKEN:
+    print("❌ TOKEN NOT FOUND")
+    exit()
 
 # 👑 ايديك (من userinfobot)
 ADMIN_ID = 6307427506
@@ -163,6 +166,11 @@ async def handle(callback: types.CallbackQuery):
             await callback.message.answer("❌ الملف غير موجود")
 
 # ------------------ تشغيل ------------------
-
 if __name__ == "__main__":
+    import asyncio
+
+    print("🚀 Starting bot...")
+
+    asyncio.get_event_loop().run_until_complete(bot.delete_webhook())
+
     executor.start_polling(dp, skip_updates=True)

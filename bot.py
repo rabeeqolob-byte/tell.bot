@@ -7,8 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 from docx import Document
 
-# 🔑 التوكن
-TOKEN = "8761300648:AAGL1RrxjIK1XsdSUGkzw-0RXrg16n9Y5H0"
+TOKEN = os.getenv("TOKEN")
 
 # 👑 ايديك (من userinfobot)
 ADMIN_ID = 6307427506

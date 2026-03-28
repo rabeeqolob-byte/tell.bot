@@ -16,7 +16,7 @@ ADMIN_ID = 6307427506
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-DATA_PATH = "."
+DATA_PATH = "data"
 USERS_FILE = "users.json"
 
 paths_map = {}

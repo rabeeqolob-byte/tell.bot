@@ -8,7 +8,7 @@ from docx import Document
 
 # ------------------ إعدادات ------------------
 
-BASE_FOLDERS = ["data", "data1"]  # 🔥 مجلدين
+BASE_FOLDERS = ["data", "data1"]
 USERS_FILE = "users.json"
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 6307427506
@@ -66,17 +66,14 @@ def build_keyboard(path):
     except:
         return keyboard
 
-    for item in items:
+    for i, item in enumerate(items):
         full_path = os.path.join(path, item)
-
-        # 🔥 تقصير الاسم داخل callback
-        short_name = item[:40]
 
         if os.path.isdir(full_path):
             keyboard.insert(
                 InlineKeyboardButton(
                     f"📂 {item}",
-                    callback_data=f"dir|{short_name}"
+                    callback_data=f"dir|{i}"
                 )
             )
 
@@ -84,7 +81,7 @@ def build_keyboard(path):
             keyboard.insert(
                 InlineKeyboardButton(
                     f"📄 {item}",
-                    callback_data=f"file|{short_name}"
+                    callback_data=f"file|{i}"
                 )
             )
 
@@ -100,7 +97,6 @@ async def start(message: types.Message):
 
     keyboard = InlineKeyboardMarkup(row_width=2)
 
-    # 🔥 عرض المجلدين الأساسيين
     for folder in BASE_FOLDERS:
         if os.path.exists(folder):
             keyboard.add(
@@ -144,7 +140,6 @@ async def handle(callback: types.CallbackQuery):
         current_path = os.path.dirname(current_path)
 
         if current_path == "":
-            # رجوع للرئيسية
             keyboard = InlineKeyboardMarkup()
             for folder in BASE_FOLDERS:
                 keyboard.add(
@@ -154,31 +149,35 @@ async def handle(callback: types.CallbackQuery):
                     )
                 )
 
-            await callback.message.edit_text(
-                "<b>📿 اختر القسم</b>",
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
+            try:
+                await callback.message.edit_text(
+                    "<b>📿 اختر القسم</b>",
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
+                )
+            except:
+                pass
             return
 
     else:
         try:
-            action, name = data.split("|")
+            action, index = data.split("|")
+            index = int(index)
         except:
             await callback.message.answer("❌ خطأ")
             return
 
-        # 🔥 نجيب الاسم الحقيقي من الملفات (حل مشكلة العربية)
-        real_name = None
-        for item in os.listdir(current_path):
-            if item.startswith(name):
-                real_name = item
-                break
+        try:
+            items = sorted(os.listdir(current_path))
+        except:
+            await callback.message.answer("❌ خطأ في القراءة")
+            return
 
-        if not real_name:
+        if index >= len(items):
             await callback.message.answer("❌ الملف غير موجود")
             return
 
+        real_name = items[index]
         new_path = os.path.join(current_path, real_name)
 
         # مجلد
@@ -196,10 +195,18 @@ async def handle(callback: types.CallbackQuery):
 
                 text = clean_text(text)
 
-                await bot.send_message(user_id, f"<b>📄 {real_name}</b>", parse_mode="HTML")
+                await bot.send_message(
+                    user_id,
+                    f"<b>📄 {real_name}</b>",
+                    parse_mode="HTML"
+                )
 
                 for part in split_text(text):
-                    await bot.send_message(user_id, f"<b>{part}</b>", parse_mode="HTML")
+                    await bot.send_message(
+                        user_id,
+                        f"<b>{part}</b>",
+                        parse_mode="HTML"
+                    )
 
                 return
 
@@ -209,11 +216,14 @@ async def handle(callback: types.CallbackQuery):
 
     user_paths[user_id] = current_path
 
-    await callback.message.edit_text(
-        f"<b>📂 {os.path.basename(current_path)}</b>",
-        reply_markup=build_keyboard(current_path),
-        parse_mode="HTML"
-    )
+    try:
+        await callback.message.edit_text(
+            f"<b>📂 {os.path.basename(current_path) or 'الرئيسية'}</b>",
+            reply_markup=build_keyboard(current_path),
+            parse_mode="HTML"
+        )
+    except:
+        pass
 
 # ------------------ تشغيل ------------------
 

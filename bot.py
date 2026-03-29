@@ -8,7 +8,7 @@ from docx import Document
 
 # ------------------ إعدادات ------------------
 
-BASE_FOLDERS = ["mafateeh1", "mafateeh2"]
+BASE_FOLDERS = ["mafateehk", "mafateeht", "mafateehy"]
 USERS_FILE = "users.json"
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 6307427506
@@ -106,8 +106,15 @@ async def start(message: types.Message):
                 )
             )
 
+    # 🔥 هنا الإصلاح
+    if message.from_user.id == ADMIN_ID:
+        count = len(load_users())
+        text = f"<b>👑 أهلاً بك</b>\n<b>👥 عدد المستخدمين: {count}</b>"
+    else:
+        text = "<b>📿 اختر القسم</b>"
+
     await message.answer(
-        "<b>📿 اختر القسم</b>",
+        text,
         reply_markup=keyboard,
         parse_mode="HTML"
     )
@@ -238,4 +245,4 @@ async def main():
         await bot.session.close()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main())768

@@ -8,7 +8,7 @@ from docx import Document
 
 # ------------------ إعدادات ------------------
 
-BASE_FOLDERS = ["data", "data1"]
+BASE_FOLDERS = ["mafateeh1", "mafateeh2"]
 USERS_FILE = "users.json"
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 6307427506

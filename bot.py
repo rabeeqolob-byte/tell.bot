@@ -13,6 +13,13 @@ USERS_FILE = "users.json"
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 6307427506
 
+# أسماء عربية للأقسام
+FOLDER_NAMES = {
+    "mafateeh1": "🔑 مفاتيح 1",
+    "mafateeh2": "🕌 زيارات 2",
+    "mafateeh3": "📖 قرآن 3"
+}
+
 if not TOKEN:
     print("❌ TOKEN NOT FOUND")
     exit()
@@ -41,7 +48,6 @@ def save_user(user_id):
 # ------------------ تنظيف النص ------------------
 
 def clean_text(text):
-    # حذف الأحرف الإنجليزية فقط والإبقاء على كل شيء آخر
     return re.sub(r'[A-Za-z]', '', text)
 
 # ------------------ قراءة docx ------------------
@@ -69,7 +75,6 @@ def build_keyboard(path):
         full_path = os.path.join(path, item)
         name_without_ext = os.path.splitext(item)[0]
 
-        # 📁 مجلد
         if os.path.isdir(full_path):
             keyboard.insert(
                 InlineKeyboardButton(
@@ -78,7 +83,6 @@ def build_keyboard(path):
                 )
             )
 
-        # 📜 txt
         elif item.endswith(".txt"):
             keyboard.insert(
                 InlineKeyboardButton(
@@ -87,7 +91,6 @@ def build_keyboard(path):
                 )
             )
 
-        # 📝 docx
         elif item.endswith(".docx"):
             keyboard.insert(
                 InlineKeyboardButton(
@@ -112,7 +115,7 @@ async def start(message: types.Message):
         if os.path.exists(folder):
             keyboard.add(
                 InlineKeyboardButton(
-                    f"📁 {folder}",
+                    FOLDER_NAMES.get(folder, f"📁 {folder}"),
                     callback_data=f"root|{folder}"
                 )
             )
@@ -123,11 +126,7 @@ async def start(message: types.Message):
     else:
         text = "<b>📿 اختر القسم</b>"
 
-    await message.answer(
-        text,
-        reply_markup=keyboard,
-        parse_mode="HTML"
-    )
+    await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 # ------------------ مسارات المستخدمين ------------------
 
@@ -147,12 +146,10 @@ async def handle(callback: types.CallbackQuery):
 
     current_path = user_paths[user_id]
 
-    # دخول مجلد رئيسي
     if data.startswith("root|"):
         folder = data.split("|")[1]
         current_path = folder
 
-    # رجوع
     elif data == "back":
         current_path = os.path.dirname(current_path)
 
@@ -161,7 +158,7 @@ async def handle(callback: types.CallbackQuery):
             for folder in BASE_FOLDERS:
                 keyboard.add(
                     InlineKeyboardButton(
-                        f"📁 {folder}",
+                        FOLDER_NAMES.get(folder, f"📁 {folder}"),
                         callback_data=f"root|{folder}"
                     )
                 )
@@ -197,11 +194,9 @@ async def handle(callback: types.CallbackQuery):
         real_name = items[index]
         new_path = os.path.join(current_path, real_name)
 
-        # 📁 مجلد
         if action == "dir":
             current_path = new_path
 
-        # 📄 ملف
         elif action == "file":
             try:
                 if new_path.endswith(".docx"):
@@ -218,22 +213,22 @@ async def handle(callback: types.CallbackQuery):
                     parse_mode="HTML"
                 )
 
-for part in split_text(text):
-    await bot.send_message(
-        user_id,
-        f"<b>{part}</b>",
-        parse_mode="HTML"
-    )
+                for part in split_text(text):
+                    await bot.send_message(
+                        user_id,
+                        f"<b>{part}</b>",
+                        parse_mode="HTML"
+                    )
 
-# 🔥 إعادة إظهار الأزرار بعد النص
-await bot.send_message(
-    user_id,
-    "<b>📂 اختر من القائمة</b>",
-    reply_markup=build_keyboard(current_path),
-    parse_mode="HTML"
-)
+                # 🔥 إعادة الأزرار
+                await bot.send_message(
+                    user_id,
+                    "<b>📂 اختر من القائمة</b>",
+                    reply_markup=build_keyboard(current_path),
+                    parse_mode="HTML"
+                )
 
-return
+                return
 
             except Exception as e:
                 await callback.message.answer(f"❌ خطأ: {e}")

@@ -2,25 +2,49 @@ import os
 import json
 import re
 import asyncio
+import zipfile
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from docx import Document
 
+# ------------------ إعدادات ------------------
+
+DATA_PATH = "data"
+USERS_FILE = "users.json"
 TOKEN = os.getenv("TOKEN")
+ADMIN_ID = 6307427506
 
 if not TOKEN:
     print("❌ TOKEN NOT FOUND")
     exit()
 
-ADMIN_ID = 6307427506
+# ------------------ فك الضغط ------------------
+
+if not os.path.exists(DATA_PATH):
+    if os.path.exists("data.zip"):
+        print("📦 Extracting data.zip...")
+        with zipfile.ZipFile("data.zip", 'r') as zip_ref:
+            zip_ref.extractall(DATA_PATH)
+
+        # إصلاح data/data
+        inner = os.listdir(DATA_PATH)
+        if len(inner) == 1:
+            inner_path = os.path.join(DATA_PATH, inner[0])
+            if os.path.isdir(inner_path):
+                for f in os.listdir(inner_path):
+                    os.rename(
+                        os.path.join(inner_path, f),
+                        os.path.join(DATA_PATH, f)
+                    )
+                os.rmdir(inner_path)
+
+print("📂 DATA PATH:", DATA_PATH)
+print("📄 Files:", os.listdir(DATA_PATH) if os.path.exists(DATA_PATH) else "❌ NOT FOUND")
+
+# ------------------ البوت ------------------
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
-
-DATA_PATH = "data"
-USERS_FILE = "users.json"
-
-print("📂 DATA PATH:", DATA_PATH)
 
 # ------------------ المستخدمين ------------------
 
@@ -58,17 +82,14 @@ def read_docx(file_path):
 def split_text(text, size=4000):
     return [text[i:i+size] for i in range(0, len(text), size)]
 
-# ------------------ إنشاء الأزرار ------------------
+# ------------------ الكيبورد ------------------
 
 def build_keyboard(path):
     keyboard = InlineKeyboardMarkup(row_width=2)
 
     try:
         items = sorted(os.listdir(path))
-        print("📂 فتح:", path)
-        print("📄 محتويات:", items)
-    except Exception as e:
-        print("❌ ERROR:", e)
+    except:
         return keyboard
 
     for item in items:
@@ -115,7 +136,7 @@ async def start(message: types.Message):
         parse_mode="HTML"
     )
 
-# ------------------ تخزين المسار لكل مستخدم ------------------
+# ------------------ مسارات المستخدمين ------------------
 
 user_paths = {}
 
@@ -133,22 +154,21 @@ async def handle(callback: types.CallbackQuery):
 
     current_path = user_paths[user_id]
 
-    # زر الرجوع
+    # رجوع
     if data == "back":
         current_path = os.path.dirname(current_path)
-        if not current_path or current_path == "":
+        if current_path == "" or current_path == ".":
             current_path = DATA_PATH
 
     else:
         try:
             action, name = data.split("|")
         except:
-            await callback.message.answer("❌ خطأ في الزر")
+            await callback.message.answer("❌ خطأ")
             return
 
         new_path = os.path.join(current_path, name)
 
-        # فتح مجلد
         if action == "dir":
             if os.path.isdir(new_path):
                 current_path = new_path
@@ -156,7 +176,6 @@ async def handle(callback: types.CallbackQuery):
                 await callback.message.answer("❌ المجلد غير موجود")
                 return
 
-        # فتح ملف
         elif action == "file":
             try:
                 if new_path.endswith(".docx"):
@@ -189,19 +208,19 @@ async def handle(callback: types.CallbackQuery):
     user_paths[user_id] = current_path
 
     await callback.message.edit_text(
-        f"<b>📂 {os.path.basename(current_path)}</b>",
+        f"<b>📂 {os.path.basename(current_path) or 'الرئيسية'}</b>",
         reply_markup=build_keyboard(current_path),
         parse_mode="HTML"
     )
 
-# ------------------ التشغيل ------------------
+# ------------------ تشغيل ------------------
 
 async def main():
     print("🚀 Starting bot...")
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        print("✅ Bot started successfully")
+        print("✅ Bot started")
 
         await dp.start_polling()
 

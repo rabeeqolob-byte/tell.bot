@@ -15,9 +15,9 @@ ADMIN_ID = 6307427506
 
 # أسماء عربية للأقسام
 FOLDER_NAMES = {
-    "mafateeh1": "🔑 مفاتيح 1",
-    "mafateeh2": "🕌 زيارات 2",
-    "mafateeh3": "📖 قرآن 3"
+    "mafateeh1": "🔑 mafateeh 1",
+    "mafateeh2": "🔑 mafateeh 2",
+    "mafateeh3": "🔑 mafateeh 3"
 }
 
 if not TOKEN:

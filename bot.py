@@ -7,12 +7,26 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from docx import Document
 import zipfile
 
-# فك الضغط إذا ما فيه مجلد data
-if not os.path.exists("data"):
+# ------------------ المسار ------------------
+
+DATA_PATH = "data"
+USERS_FILE = "users.json"
+
+# فك الضغط
+if not os.path.exists(DATA_PATH):
+    print("📦 Extracting data.zip...")
     with zipfile.ZipFile("data.zip", 'r') as zip_ref:
-        zip_ref.extractall("data")
-print("📂 DATA PATH:", DATA_PATH)
-print("📄 Files inside:", os.listdir(DATA_PATH) if os.path.exists(DATA_PATH) else "NOT FOUND")
+        zip_ref.extractall(DATA_PATH)
+
+# تأكيد الملفات
+if os.path.exists(DATA_PATH):
+    print("📂 DATA PATH:", DATA_PATH)
+    print("📄 Files inside:", os.listdir(DATA_PATH))
+else:
+    print("❌ data folder NOT FOUND")
+
+# ------------------ التوكن ------------------
+
 TOKEN = os.getenv("TOKEN")
 
 if not TOKEN:
@@ -23,11 +37,6 @@ ADMIN_ID = 6307427506
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
-
-DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
-USERS_FILE = "users.json"
-
-print("📂 DATA PATH:", DATA_PATH)
 
 # ------------------ المستخدمين ------------------
 
@@ -72,6 +81,8 @@ def build_keyboard(path):
 
     try:
         items = sorted(os.listdir(path))
+        print("📂 فتح:", path)
+        print("📄 محتويات:", items)
     except Exception as e:
         print("❌ ERROR reading folder:", e)
         return keyboard
@@ -122,13 +133,6 @@ async def start(message: types.Message):
         reply_markup=build_keyboard(DATA_PATH),
         parse_mode="HTML"
     )
-
-# ------------------ اختبار ------------------
-
-@dp.message_handler()
-async def test(message: types.Message):
-    print("📩 message:", message.text)
-    await message.answer("✅ البوت شغال")
 
 # ------------------ الأزرار ------------------
 
@@ -184,7 +188,7 @@ async def handle(callback: types.CallbackQuery):
         except Exception as e:
             await callback.message.answer(f"❌ خطأ: {e}")
 
-# ------------------ التشغيل الصحيح ------------------
+# ------------------ التشغيل ------------------
 
 async def main():
     print("🚀 Starting bot...")

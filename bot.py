@@ -8,7 +8,7 @@ from docx import Document
 
 # ------------------ إعدادات ------------------
 
-BASE_FOLDERS = ["mafateehk", "mafateeht", "mafateehy"]
+BASE_FOLDERS = ["mafateeh1", "mafateeh2", "mafateeh3"]
 USERS_FILE = "users.json"
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 6307427506
@@ -41,9 +41,8 @@ def save_user(user_id):
 # ------------------ تنظيف النص ------------------
 
 def clean_text(text):
-    text = re.sub(r'[A-Za-z]', '', text)
-    text = re.sub(r'[^؀-ۿ0-9\s\n.,!?؟،]', '', text)
-    return text
+    # حذف الأحرف الإنجليزية فقط والإبقاء على كل شيء آخر
+    return re.sub(r'[A-Za-z]', '', text)
 
 # ------------------ قراءة docx ------------------
 
@@ -68,19 +67,31 @@ def build_keyboard(path):
 
     for i, item in enumerate(items):
         full_path = os.path.join(path, item)
+        name_without_ext = os.path.splitext(item)[0]
 
+        # 📁 مجلد
         if os.path.isdir(full_path):
             keyboard.insert(
                 InlineKeyboardButton(
-                    f"📂 {item}",
+                    f"📁 {item}",
                     callback_data=f"dir|{i}"
                 )
             )
 
-        elif item.endswith(".txt") or item.endswith(".docx"):
+        # 📜 txt
+        elif item.endswith(".txt"):
             keyboard.insert(
                 InlineKeyboardButton(
-                    f"📄 {item}",
+                    f"📜 {name_without_ext}",
+                    callback_data=f"file|{i}"
+                )
+            )
+
+        # 📝 docx
+        elif item.endswith(".docx"):
+            keyboard.insert(
+                InlineKeyboardButton(
+                    f"📝 {name_without_ext}",
                     callback_data=f"file|{i}"
                 )
             )
@@ -101,12 +112,11 @@ async def start(message: types.Message):
         if os.path.exists(folder):
             keyboard.add(
                 InlineKeyboardButton(
-                    f"📂 {folder}",
+                    f"📁 {folder}",
                     callback_data=f"root|{folder}"
                 )
             )
 
-    # 🔥 هنا الإصلاح
     if message.from_user.id == ADMIN_ID:
         count = len(load_users())
         text = f"<b>👑 أهلاً بك</b>\n<b>👥 عدد المستخدمين: {count}</b>"
@@ -151,7 +161,7 @@ async def handle(callback: types.CallbackQuery):
             for folder in BASE_FOLDERS:
                 keyboard.add(
                     InlineKeyboardButton(
-                        f"📂 {folder}",
+                        f"📁 {folder}",
                         callback_data=f"root|{folder}"
                     )
                 )
@@ -187,11 +197,11 @@ async def handle(callback: types.CallbackQuery):
         real_name = items[index]
         new_path = os.path.join(current_path, real_name)
 
-        # مجلد
+        # 📁 مجلد
         if action == "dir":
             current_path = new_path
 
-        # ملف
+        # 📄 ملف
         elif action == "file":
             try:
                 if new_path.endswith(".docx"):
@@ -204,7 +214,7 @@ async def handle(callback: types.CallbackQuery):
 
                 await bot.send_message(
                     user_id,
-                    f"<b>📄 {real_name}</b>",
+                    f"<b>📄 {os.path.splitext(real_name)[0]}</b>",
                     parse_mode="HTML"
                 )
 

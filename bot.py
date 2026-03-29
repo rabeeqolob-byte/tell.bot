@@ -218,14 +218,22 @@ async def handle(callback: types.CallbackQuery):
                     parse_mode="HTML"
                 )
 
-                for part in split_text(text):
-                    await bot.send_message(
-                        user_id,
-                        f"<b>{part}</b>",
-                        parse_mode="HTML"
-                    )
+for part in split_text(text):
+    await bot.send_message(
+        user_id,
+        f"<b>{part}</b>",
+        parse_mode="HTML"
+    )
 
-                return
+# 🔥 إعادة إظهار الأزرار بعد النص
+await bot.send_message(
+    user_id,
+    "<b>📂 اختر من القائمة</b>",
+    reply_markup=build_keyboard(current_path),
+    parse_mode="HTML"
+)
+
+return
 
             except Exception as e:
                 await callback.message.answer(f"❌ خطأ: {e}")

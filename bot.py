@@ -11,7 +11,8 @@ import zipfile
 if not os.path.exists("data"):
     with zipfile.ZipFile("data.zip", 'r') as zip_ref:
         zip_ref.extractall("data")
-
+print("📂 DATA PATH:", DATA_PATH)
+print("📄 Files inside:", os.listdir(DATA_PATH) if os.path.exists(DATA_PATH) else "NOT FOUND")
 TOKEN = os.getenv("TOKEN")
 
 if not TOKEN:

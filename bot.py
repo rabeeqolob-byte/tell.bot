@@ -2,14 +2,13 @@ import os
 import json
 import re
 import asyncio
-import zipfile
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from docx import Document
 
 # ------------------ إعدادات ------------------
 
-DATA_PATH = "data"
+BASE_FOLDERS = ["data", "data1"]  # 🔥 مجلدين
 USERS_FILE = "users.json"
 TOKEN = os.getenv("TOKEN")
 ADMIN_ID = 6307427506
@@ -17,31 +16,6 @@ ADMIN_ID = 6307427506
 if not TOKEN:
     print("❌ TOKEN NOT FOUND")
     exit()
-
-# ------------------ فك الضغط ------------------
-
-if not os.path.exists(DATA_PATH):
-    if os.path.exists("data.zip"):
-        print("📦 Extracting data.zip...")
-        with zipfile.ZipFile("data.zip", 'r') as zip_ref:
-            zip_ref.extractall(DATA_PATH)
-
-        # إصلاح data/data
-        inner = os.listdir(DATA_PATH)
-        if len(inner) == 1:
-            inner_path = os.path.join(DATA_PATH, inner[0])
-            if os.path.isdir(inner_path):
-                for f in os.listdir(inner_path):
-                    os.rename(
-                        os.path.join(inner_path, f),
-                        os.path.join(DATA_PATH, f)
-                    )
-                os.rmdir(inner_path)
-
-print("📂 DATA PATH:", DATA_PATH)
-print("📄 Files:", os.listdir(DATA_PATH) if os.path.exists(DATA_PATH) else "❌ NOT FOUND")
-
-# ------------------ البوت ------------------
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
@@ -95,11 +69,14 @@ def build_keyboard(path):
     for item in items:
         full_path = os.path.join(path, item)
 
+        # 🔥 تقصير الاسم داخل callback
+        short_name = item[:40]
+
         if os.path.isdir(full_path):
             keyboard.insert(
                 InlineKeyboardButton(
                     f"📂 {item}",
-                    callback_data=f"dir|{item}"
+                    callback_data=f"dir|{short_name}"
                 )
             )
 
@@ -107,14 +84,11 @@ def build_keyboard(path):
             keyboard.insert(
                 InlineKeyboardButton(
                     f"📄 {item}",
-                    callback_data=f"file|{item}"
+                    callback_data=f"file|{short_name}"
                 )
             )
 
-    if path != DATA_PATH:
-        keyboard.add(
-            InlineKeyboardButton("🔙 رجوع", callback_data="back")
-        )
+    keyboard.add(InlineKeyboardButton("🔙 رجوع", callback_data="back"))
 
     return keyboard
 
@@ -124,15 +98,21 @@ def build_keyboard(path):
 async def start(message: types.Message):
     save_user(message.from_user.id)
 
-    if message.from_user.id == ADMIN_ID:
-        count = len(load_users())
-        text = f"<b>👑 أهلاً بك</b>\n<b>👥 عدد المستخدمين: {count}</b>"
-    else:
-        text = "<b>📿 أهلاً بك في بوت الأدعية</b>"
+    keyboard = InlineKeyboardMarkup(row_width=2)
+
+    # 🔥 عرض المجلدين الأساسيين
+    for folder in BASE_FOLDERS:
+        if os.path.exists(folder):
+            keyboard.add(
+                InlineKeyboardButton(
+                    f"📂 {folder}",
+                    callback_data=f"root|{folder}"
+                )
+            )
 
     await message.answer(
-        text,
-        reply_markup=build_keyboard(DATA_PATH),
+        "<b>📿 اختر القسم</b>",
+        reply_markup=keyboard,
         parse_mode="HTML"
     )
 
@@ -150,15 +130,36 @@ async def handle(callback: types.CallbackQuery):
     data = callback.data
 
     if user_id not in user_paths:
-        user_paths[user_id] = DATA_PATH
+        user_paths[user_id] = ""
 
     current_path = user_paths[user_id]
 
+    # دخول مجلد رئيسي
+    if data.startswith("root|"):
+        folder = data.split("|")[1]
+        current_path = folder
+
     # رجوع
-    if data == "back":
+    elif data == "back":
         current_path = os.path.dirname(current_path)
-        if current_path == "" or current_path == ".":
-            current_path = DATA_PATH
+
+        if current_path == "":
+            # رجوع للرئيسية
+            keyboard = InlineKeyboardMarkup()
+            for folder in BASE_FOLDERS:
+                keyboard.add(
+                    InlineKeyboardButton(
+                        f"📂 {folder}",
+                        callback_data=f"root|{folder}"
+                    )
+                )
+
+            await callback.message.edit_text(
+                "<b>📿 اختر القسم</b>",
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+            return
 
     else:
         try:
@@ -167,15 +168,24 @@ async def handle(callback: types.CallbackQuery):
             await callback.message.answer("❌ خطأ")
             return
 
-        new_path = os.path.join(current_path, name)
+        # 🔥 نجيب الاسم الحقيقي من الملفات (حل مشكلة العربية)
+        real_name = None
+        for item in os.listdir(current_path):
+            if item.startswith(name):
+                real_name = item
+                break
 
+        if not real_name:
+            await callback.message.answer("❌ الملف غير موجود")
+            return
+
+        new_path = os.path.join(current_path, real_name)
+
+        # مجلد
         if action == "dir":
-            if os.path.isdir(new_path):
-                current_path = new_path
-            else:
-                await callback.message.answer("❌ المجلد غير موجود")
-                return
+            current_path = new_path
 
+        # ملف
         elif action == "file":
             try:
                 if new_path.endswith(".docx"):
@@ -186,18 +196,10 @@ async def handle(callback: types.CallbackQuery):
 
                 text = clean_text(text)
 
-                await bot.send_message(
-                    user_id,
-                    f"<b>📄 {name}</b>",
-                    parse_mode="HTML"
-                )
+                await bot.send_message(user_id, f"<b>📄 {real_name}</b>", parse_mode="HTML")
 
                 for part in split_text(text):
-                    await bot.send_message(
-                        user_id,
-                        f"<b>{part}</b>",
-                        parse_mode="HTML"
-                    )
+                    await bot.send_message(user_id, f"<b>{part}</b>", parse_mode="HTML")
 
                 return
 
@@ -208,7 +210,7 @@ async def handle(callback: types.CallbackQuery):
     user_paths[user_id] = current_path
 
     await callback.message.edit_text(
-        f"<b>📂 {os.path.basename(current_path) or 'الرئيسية'}</b>",
+        f"<b>📂 {os.path.basename(current_path)}</b>",
         reply_markup=build_keyboard(current_path),
         parse_mode="HTML"
     )
@@ -220,8 +222,6 @@ async def main():
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        print("✅ Bot started")
-
         await dp.start_polling()
 
     finally:

@@ -1,24 +1,23 @@
 import os
 import json
 import re
+import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.utils import executor
 from docx import Document
-
 import zipfile
 
+# فك الضغط إذا ما فيه مجلد data
 if not os.path.exists("data"):
     with zipfile.ZipFile("data.zip", 'r') as zip_ref:
         zip_ref.extractall("data")
-        
+
 TOKEN = os.getenv("TOKEN")
 
 if not TOKEN:
     print("❌ TOKEN NOT FOUND")
     exit()
 
-# 👑 ايديك
 ADMIN_ID = 6307427506
 
 bot = Bot(token=TOKEN)
@@ -27,7 +26,6 @@ dp = Dispatcher(bot)
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
 USERS_FILE = "users.json"
 
-print("✅ Bot started...")
 print("📂 DATA PATH:", DATA_PATH)
 
 # ------------------ المستخدمين ------------------
@@ -96,7 +94,6 @@ def build_keyboard(path):
                 )
             )
 
-    # زر رجوع
     if path != DATA_PATH:
         parent = os.path.dirname(path)
         keyboard.add(
@@ -125,7 +122,7 @@ async def start(message: types.Message):
         parse_mode="HTML"
     )
 
-# ------------------ اختبار (مهم) ------------------
+# ------------------ اختبار ------------------
 
 @dp.message_handler()
 async def test(message: types.Message):
@@ -186,20 +183,20 @@ async def handle(callback: types.CallbackQuery):
         except Exception as e:
             await callback.message.answer(f"❌ خطأ: {e}")
 
-# ------------------ تشغيل ------------------
+# ------------------ التشغيل الصحيح ------------------
 
-# ------------------ تشغيل ------------------
-
-if __name__ == "__main__":
-    import asyncio
-
+async def main():
     print("🚀 Starting bot...")
 
-    # حذف أي جلسة قديمة
-    asyncio.get_event_loop().run_until_complete(bot.delete_webhook())
-async def main():
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot) 
-    
-    # تشغيل البوت
-    executor.start_polling(dp, skip_updates=True)
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        print("✅ Bot started successfully")
+
+        await dp.start_polling()
+
+    finally:
+        print("❌ Closing bot session...")
+        await bot.session.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -115,7 +115,7 @@ async def start(message: types.Message):
         parse_mode="HTML"
     )
 
-# ------------------ تخزين المسار ------------------
+# ------------------ تخزين المسار لكل مستخدم ------------------
 
 user_paths = {}
 
@@ -128,25 +128,35 @@ async def handle(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     data = callback.data
 
-    # أول مرة
     if user_id not in user_paths:
         user_paths[user_id] = DATA_PATH
 
     current_path = user_paths[user_id]
 
-    # رجوع
+    # زر الرجوع
     if data == "back":
         current_path = os.path.dirname(current_path)
-        if current_path == "":
+        if not current_path or current_path == "":
             current_path = DATA_PATH
 
     else:
-        action, name = data.split("|")
+        try:
+            action, name = data.split("|")
+        except:
+            await callback.message.answer("❌ خطأ في الزر")
+            return
+
         new_path = os.path.join(current_path, name)
 
+        # فتح مجلد
         if action == "dir":
-            current_path = new_path
+            if os.path.isdir(new_path):
+                current_path = new_path
+            else:
+                await callback.message.answer("❌ المجلد غير موجود")
+                return
 
+        # فتح ملف
         elif action == "file":
             try:
                 if new_path.endswith(".docx"):

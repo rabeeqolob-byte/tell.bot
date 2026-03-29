@@ -5,27 +5,6 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from docx import Document
-import zipfile
-
-# ------------------ المسار ------------------
-
-DATA_PATH = "data"
-USERS_FILE = "users.json"
-
-# فك الضغط
-if not os.path.exists(DATA_PATH):
-    print("📦 Extracting data.zip...")
-    with zipfile.ZipFile("data.zip", 'r') as zip_ref:
-        zip_ref.extractall(DATA_PATH)
-
-# تأكيد الملفات
-if os.path.exists(DATA_PATH):
-    print("📂 DATA PATH:", DATA_PATH)
-    print("📄 Files inside:", os.listdir(DATA_PATH))
-else:
-    print("❌ data folder NOT FOUND")
-
-# ------------------ التوكن ------------------
 
 TOKEN = os.getenv("TOKEN")
 
@@ -37,6 +16,11 @@ ADMIN_ID = 6307427506
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
+
+DATA_PATH = "data"
+USERS_FILE = "users.json"
+
+print("📂 DATA PATH:", DATA_PATH)
 
 # ------------------ المستخدمين ------------------
 
@@ -84,7 +68,7 @@ def build_keyboard(path):
         print("📂 فتح:", path)
         print("📄 محتويات:", items)
     except Exception as e:
-        print("❌ ERROR reading folder:", e)
+        print("❌ ERROR:", e)
         return keyboard
 
     for item in items:
@@ -94,22 +78,21 @@ def build_keyboard(path):
             keyboard.insert(
                 InlineKeyboardButton(
                     f"📂 {item}",
-                    callback_data=f"dir|{full_path}"
+                    callback_data=f"dir|{item}"
                 )
             )
 
-        elif item.endswith(".docx") or item.endswith(".txt"):
+        elif item.endswith(".txt") or item.endswith(".docx"):
             keyboard.insert(
                 InlineKeyboardButton(
                     f"📄 {item}",
-                    callback_data=f"file|{full_path}"
+                    callback_data=f"file|{item}"
                 )
             )
 
     if path != DATA_PATH:
-        parent = os.path.dirname(path)
         keyboard.add(
-            InlineKeyboardButton("🔙 رجوع", callback_data=f"dir|{parent}")
+            InlineKeyboardButton("🔙 رجوع", callback_data="back")
         )
 
     return keyboard
@@ -118,8 +101,6 @@ def build_keyboard(path):
 
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message):
-    print("📩 /start received")
-
     save_user(message.from_user.id)
 
     if message.from_user.id == ADMIN_ID:
@@ -134,59 +115,74 @@ async def start(message: types.Message):
         parse_mode="HTML"
     )
 
+# ------------------ تخزين المسار ------------------
+
+user_paths = {}
+
 # ------------------ الأزرار ------------------
 
 @dp.callback_query_handler()
 async def handle(callback: types.CallbackQuery):
     await callback.answer()
 
-    try:
-        action, path = callback.data.split("|", 1)
-    except:
-        await callback.message.answer("❌ خطأ")
-        return
+    user_id = callback.from_user.id
+    data = callback.data
 
-    if not os.path.exists(path):
-        await callback.message.answer("❌ المسار غير موجود")
-        return
+    # أول مرة
+    if user_id not in user_paths:
+        user_paths[user_id] = DATA_PATH
 
-    if action == "dir":
-        await callback.message.edit_text(
-            f"<b>📂 {os.path.basename(path) or 'الرئيسية'}</b>",
-            reply_markup=build_keyboard(path),
-            parse_mode="HTML"
-        )
+    current_path = user_paths[user_id]
 
-    elif action == "file":
-        try:
-            if path.endswith(".docx"):
-                text = read_docx(path)
+    # رجوع
+    if data == "back":
+        current_path = os.path.dirname(current_path)
+        if current_path == "":
+            current_path = DATA_PATH
 
-            elif path.endswith(".txt"):
-                with open(path, "r", encoding="utf-8") as f:
-                    text = f.read()
+    else:
+        action, name = data.split("|")
+        new_path = os.path.join(current_path, name)
 
-            else:
-                await callback.message.answer("❌ ملف غير مدعوم")
-                return
+        if action == "dir":
+            current_path = new_path
 
-            text = clean_text(text)
+        elif action == "file":
+            try:
+                if new_path.endswith(".docx"):
+                    text = read_docx(new_path)
+                else:
+                    with open(new_path, "r", encoding="utf-8") as f:
+                        text = f.read()
 
-            await bot.send_message(
-                callback.from_user.id,
-                f"<b>📄 {os.path.basename(path)}</b>",
-                parse_mode="HTML"
-            )
+                text = clean_text(text)
 
-            for part in split_text(text):
                 await bot.send_message(
-                    callback.from_user.id,
-                    f"<b>{part}</b>",
+                    user_id,
+                    f"<b>📄 {name}</b>",
                     parse_mode="HTML"
                 )
 
-        except Exception as e:
-            await callback.message.answer(f"❌ خطأ: {e}")
+                for part in split_text(text):
+                    await bot.send_message(
+                        user_id,
+                        f"<b>{part}</b>",
+                        parse_mode="HTML"
+                    )
+
+                return
+
+            except Exception as e:
+                await callback.message.answer(f"❌ خطأ: {e}")
+                return
+
+    user_paths[user_id] = current_path
+
+    await callback.message.edit_text(
+        f"<b>📂 {os.path.basename(current_path)}</b>",
+        reply_markup=build_keyboard(current_path),
+        parse_mode="HTML"
+    )
 
 # ------------------ التشغيل ------------------
 
@@ -200,7 +196,6 @@ async def main():
         await dp.start_polling()
 
     finally:
-        print("❌ Closing bot session...")
         await bot.session.close()
 
 if __name__ == "__main__":
